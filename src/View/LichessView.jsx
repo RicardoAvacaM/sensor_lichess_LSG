@@ -157,6 +157,9 @@ function LichessView() {
             <h2>Actividad detectada</h2>
             <p className="lichess-sections-hint">
               Los contadores se acumulan al sincronizar. Pulsa Canjear para enviarlos a tu perfil LSG.
+              {status?.unsupportedLearn?.length > 0 && (
+                <> No disponible vía API: {status.unsupportedLearn.join(', ')}.</>
+              )}
             </p>
             <ul className="lichess-section-list">
               {sections.map((section) => (

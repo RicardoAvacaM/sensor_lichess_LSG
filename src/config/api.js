@@ -19,12 +19,21 @@ export const LSG_SENSOR_ENDPOINT_ID = null;
 /** Intervalo de polling en ms (3 minutos) */
 export const LICHESS_POLL_INTERVAL_MS = 3 * 60 * 1000;
 
-/** Reglas de puntuación visibles en la UI */
+/** Reglas de puntuación visibles en la UI (campos de GET /api/user/{username}/activity) */
 export const LICHESS_SCORING = {
   gamePlayed: { label: 'Partidas jugadas (blitz, bullet, rapid)', pointsPerUnit: 8 },
   gameWon: { label: 'Partidas ganadas', pointsPerUnit: 4 },
   puzzle: { label: 'Puzzles resueltos', pointsPerUnit: 10 },
-  practice: { label: 'Rutas de aprendizaje', pointsPerUnit: 5 },
+  practice: { label: 'Practice (lichess.org/practice)', pointsPerUnit: 5 },
+  studies: { label: 'Estudios (lichess.org/study)', pointsPerUnit: 6 },
+  puzzleStreak: { label: 'Puzzle Streak', pointsPerUnit: 12 },
   eloGain: { label: 'Subida de ELO', pointsPerUnit: 2, cap: 30 },
   storm: { label: 'Puzzle Storm / Racer', pointsPerUnit: 15 },
 };
+
+/**
+ * No disponible en la API pública de Lichess (sin endpoint oficial):
+ * - Chess basics (lichess.org/learn)
+ * - Entrenamiento de coordenadas (lichess.org/training/coordinate)
+ */
+export const LICHESS_UNSUPPORTED_LEARN = ['Chess basics (/learn)', 'Coordenadas (/training/coordinate)'];

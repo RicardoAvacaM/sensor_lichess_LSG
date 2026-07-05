@@ -5,6 +5,7 @@ import {
   LICHESS_PAT,
   LICHESS_POLL_INTERVAL_MS,
   LICHESS_SCORING,
+  LICHESS_UNSUPPORTED_LEARN,
 } from '../config/api.js';
 import UserRepository from '../Repositories/UserRepository.js';
 import SensorPointRepository from '../Repositories/SensorPointRepository.js';
@@ -142,12 +143,25 @@ class SensorLichessService {
     return stats;
   }
 
+  emptyActivitySnapshotEntry() {
+    return {
+      puzzlesWon: 0,
+      puzzleRpAfter: 0,
+      practicePositions: 0,
+      studiesCount: 0,
+      stormRuns: 0,
+      streakRuns: 0,
+    };
+  }
+
   parseActivityEntry(entry) {
     let puzzlesWon = 0;
     let puzzleRpAfter = 0;
     let puzzleRpBefore = 0;
     let practicePositions = 0;
+    let studiesCount = 0;
     let stormRuns = 0;
+    let streakRuns = 0;
 
     if (entry.puzzles?.score) {
       puzzlesWon = entry.puzzles.score.win || 0;
@@ -159,7 +173,12 @@ class SensorLichessService {
       practicePositions = entry.practice.reduce((sum, p) => sum + (p.nbPositions || 0), 0);
     }
 
+    if (entry.studies?.length) {
+      studiesCount = entry.studies.length;
+    }
+
     stormRuns = (entry.storm?.runs || 0) + (entry.racer?.runs || 0);
+    streakRuns = entry.streak?.runs || 0;
 
     if (entry.games) {
       for (const perf of GAME_PERFS) {
@@ -170,7 +189,15 @@ class SensorLichessService {
       }
     }
 
-    return { puzzlesWon, puzzleRpBefore, puzzleRpAfter, practicePositions, stormRuns };
+    return {
+      puzzlesWon,
+      puzzleRpBefore,
+      puzzleRpAfter,
+      practicePositions,
+      studiesCount,
+      stormRuns,
+      streakRuns,
+    };
   }
 
   async fetchActivityExtras(username, user) {
@@ -178,7 +205,9 @@ class SensorLichessService {
       puzzlesWon: 0,
       puzzleEloGain: 0,
       practicePositions: 0,
+      studiesCount: 0,
       stormRuns: 0,
+      streakRuns: 0,
     };
 
     let snapshot = {};
@@ -189,8 +218,12 @@ class SensorLichessService {
     }
 
     try {
+      const headers = user.lichess_access_token
+        ? { Authorization: `Bearer ${user.lichess_access_token}` }
+        : {};
       const response = await this.httpClient.get(
-        `${LICHESS_API_URL}/api/user/${username}/activity`
+        `${LICHESS_API_URL}/api/user/${username}/activity`,
+        { headers }
       );
       const activities = response.data || [];
 
@@ -199,23 +232,25 @@ class SensorLichessService {
         if (!key) continue;
 
         const current = this.parseActivityEntry(entry);
-        const prev = snapshot[key] || {
-          puzzlesWon: 0,
-          puzzleRpAfter: 0,
-          practicePositions: 0,
-          stormRuns: 0,
+        const prev = {
+          ...this.emptyActivitySnapshotEntry(),
+          ...snapshot[key],
         };
 
         result.puzzlesWon += Math.max(0, current.puzzlesWon - prev.puzzlesWon);
         result.practicePositions += Math.max(0, current.practicePositions - prev.practicePositions);
+        result.studiesCount += Math.max(0, current.studiesCount - prev.studiesCount);
         result.stormRuns += Math.max(0, current.stormRuns - prev.stormRuns);
+        result.streakRuns += Math.max(0, current.streakRuns - prev.streakRuns);
         result.puzzleEloGain += Math.max(0, current.puzzleRpAfter - (prev.puzzleRpAfter || 0));
 
         snapshot[key] = {
           puzzlesWon: current.puzzlesWon,
           puzzleRpAfter: current.puzzleRpAfter,
           practicePositions: current.practicePositions,
+          studiesCount: current.studiesCount,
           stormRuns: current.stormRuns,
+          streakRuns: current.streakRuns,
         };
       }
 
@@ -232,12 +267,23 @@ class SensorLichessService {
     const WIN_BONUS = LICHESS_SCORING.gameWon.pointsPerUnit;
     const PUZZLE_POINTS = LICHESS_SCORING.puzzle.pointsPerUnit;
     const PRACTICE_POINTS = LICHESS_SCORING.practice.pointsPerUnit;
+    const STUDIES_POINTS = LICHESS_SCORING.studies.pointsPerUnit;
+    const STREAK_POINTS = LICHESS_SCORING.puzzleStreak.pointsPerUnit;
     const ELO_POINTS = LICHESS_SCORING.eloGain.pointsPerUnit;
     const ELO_CAP = LICHESS_SCORING.eloGain.cap;
     const STORM_POINTS = LICHESS_SCORING.storm.pointsPerUnit;
 
     let total = 0;
-    const breakdown = { games: 0, wins: 0, puzzles: 0, practice: 0, elo: 0, storm: 0 };
+    const breakdown = {
+      games: 0,
+      wins: 0,
+      puzzles: 0,
+      practice: 0,
+      studies: 0,
+      puzzleStreak: 0,
+      elo: 0,
+      storm: 0,
+    };
 
     for (const perf of GAME_PERFS) {
       const g = delta.games[perf];
@@ -250,10 +296,13 @@ class SensorLichessService {
 
     breakdown.puzzles = delta.puzzlesWon * PUZZLE_POINTS;
     breakdown.practice = delta.practicePositions * PRACTICE_POINTS;
+    breakdown.studies = delta.studiesCount * STUDIES_POINTS;
+    breakdown.puzzleStreak = delta.streakRuns * STREAK_POINTS;
     breakdown.storm = delta.stormRuns * STORM_POINTS;
     breakdown.elo += Math.min(delta.puzzleEloGain * ELO_POINTS, ELO_CAP);
 
-    total += breakdown.puzzles + breakdown.practice + breakdown.storm;
+    total += breakdown.puzzles + breakdown.practice + breakdown.studies;
+    total += breakdown.puzzleStreak + breakdown.storm;
     total += Math.min(delta.puzzleEloGain * ELO_POINTS, ELO_CAP);
 
     return { total: Math.round(total), breakdown };
@@ -297,6 +346,20 @@ class SensorLichessService {
         points: breakdown.practice,
       },
       {
+        id: 'studies',
+        label: LICHESS_SCORING.studies.label,
+        count: delta.studiesCount,
+        pointsPerUnit: LICHESS_SCORING.studies.pointsPerUnit,
+        points: breakdown.studies,
+      },
+      {
+        id: 'puzzleStreak',
+        label: LICHESS_SCORING.puzzleStreak.label,
+        count: delta.streakRuns,
+        pointsPerUnit: LICHESS_SCORING.puzzleStreak.pointsPerUnit,
+        points: breakdown.puzzleStreak,
+      },
+      {
         id: 'elo',
         label: LICHESS_SCORING.eloGain.label,
         count: null,
@@ -332,13 +395,24 @@ class SensorLichessService {
       },
       puzzlesWon: 0,
       practicePositions: 0,
+      studiesCount: 0,
       stormRuns: 0,
+      streakRuns: 0,
       puzzleEloGain: 0,
     };
   }
 
   buildEmptySections() {
-    const breakdown = { games: 0, wins: 0, puzzles: 0, practice: 0, elo: 0, storm: 0 };
+    const breakdown = {
+      games: 0,
+      wins: 0,
+      puzzles: 0,
+      practice: 0,
+      studies: 0,
+      puzzleStreak: 0,
+      elo: 0,
+      storm: 0,
+    };
     return this.buildSections(this.emptyDelta(), breakdown);
   }
 
@@ -367,7 +441,16 @@ class SensorLichessService {
       };
     }
 
-    const order = ['games', 'wins', 'puzzles', 'practice', 'elo', 'storm'];
+    const order = [
+      'games',
+      'wins',
+      'puzzles',
+      'practice',
+      'studies',
+      'puzzleStreak',
+      'elo',
+      'storm',
+    ];
     return order.map((id) => byId[id]).filter(Boolean);
   }
 
@@ -428,6 +511,7 @@ class SensorLichessService {
       sections: accumulatedSections,
       ingested: lastStatus.ingested ?? false,
       scoringRules: this.buildScoringRules(),
+      unsupportedLearn: LICHESS_UNSUPPORTED_LEARN,
       message: lastStatus.message ?? null,
     };
   }
