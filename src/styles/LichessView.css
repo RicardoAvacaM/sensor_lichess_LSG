@@ -1,0 +1,222 @@
+@import './SteamView.css';
+
+.lichess-view {
+  overflow-y: auto;
+  padding-bottom: 32px;
+}
+
+.lichess-dashboard {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lichess-header {
+  text-align: center;
+}
+
+.lichess-user {
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+
+.lichess-sync-note {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0 0 12px;
+}
+
+.lichess-sync-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  background: transparent;
+  color: #ffb366;
+  border: 1px solid rgba(255, 179, 102, 0.5);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.lichess-sync-btn:hover:not(:disabled) {
+  background: rgba(255, 127, 0, 0.15);
+}
+
+.lichess-sync-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.lichess-hint {
+  max-width: 420px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  opacity: 0.85;
+}
+
+.lichess-balance,
+.lichess-sections,
+.lichess-redeem {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.lichess-balance h2,
+.lichess-sections h2,
+.lichess-redeem h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lichess-balance-value {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+  color: #ffb366;
+}
+
+.lichess-balance-value span {
+  font-size: 16px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.lichess-last-cycle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.lichess-sections-hint,
+.lichess-redeem-hint {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.lichess-section-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lichess-section-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.lichess-section-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.lichess-section-label {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.lichess-section-count {
+  font-size: 13px;
+  background: rgba(255, 127, 0, 0.25);
+  color: #ffb366;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.lichess-section-points {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.lichess-section-rate {
+  opacity: 0.7;
+}
+
+.lichess-section-earned {
+  font-weight: 600;
+  color: #7dffb3;
+}
+
+.lichess-redeem-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lichess-redeem-form label {
+  color: white;
+  font-size: 13px;
+}
+
+.lichess-redeem-form select,
+.lichess-redeem-form input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+}
+
+.lichess-redeem-btn {
+  margin-top: 8px;
+  padding: 10px 20px;
+  font-size: 15px;
+  background-color: #FF7F00;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.lichess-redeem-empty {
+  font-size: 14px;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.lichess-redeem-pending {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffb366;
+  margin: 0 0 12px;
+}
+
+.lichess-redeem-message {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.lichess-message {
+  margin-top: 4px;
+  font-size: 14px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.login-form label {
+  color: white;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.lichess-hint a {
+  color: #ffb366;
+}
