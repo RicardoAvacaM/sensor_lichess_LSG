@@ -13,6 +13,12 @@ const NEW_COLUMNS = [
   'lsg_players_sensor_endpoint_id TEXT',
   'lichess_activity_snapshot TEXT',
   'lichess_last_status TEXT',
+  'htb_academy_session TEXT',
+  'htb_last_sync_at TEXT',
+  'htb_progress_snapshot TEXT',
+  'htb_last_status TEXT',
+  'htb_lsg_sensor_endpoint_id TEXT',
+  'htb_lsg_players_sensor_endpoint_id TEXT',
 ];
 
 db.serialize(() => {
@@ -30,7 +36,13 @@ db.serialize(() => {
       lsg_sensor_endpoint_id TEXT,
       lsg_players_sensor_endpoint_id TEXT,
       lichess_activity_snapshot TEXT,
-      lichess_last_status TEXT
+      lichess_last_status TEXT,
+      htb_academy_session TEXT,
+      htb_last_sync_at TEXT,
+      htb_progress_snapshot TEXT,
+      htb_last_status TEXT,
+      htb_lsg_sensor_endpoint_id TEXT,
+      htb_lsg_players_sensor_endpoint_id TEXT
     )
   `);
 
@@ -54,7 +66,13 @@ function rowToUser(row) {
     row.lsg_sensor_endpoint_id,
     row.lsg_players_sensor_endpoint_id,
     row.lichess_activity_snapshot,
-    row.lichess_last_status
+    row.lichess_last_status,
+    row.htb_academy_session,
+    row.htb_last_sync_at,
+    row.htb_progress_snapshot,
+    row.htb_last_status,
+    row.htb_lsg_sensor_endpoint_id,
+    row.htb_lsg_players_sensor_endpoint_id
   );
 }
 
@@ -70,8 +88,10 @@ class UserRepository {
         lsg_access_token, lsg_token_expires_at,
         lichess_username, lichess_access_token, lichess_last_sync_at,
         lsg_sensor_endpoint_id, lsg_players_sensor_endpoint_id,
-        lichess_activity_snapshot, lichess_last_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        lichess_activity_snapshot, lichess_last_status,
+        htb_academy_session, htb_last_sync_at, htb_progress_snapshot, htb_last_status,
+        htb_lsg_sensor_endpoint_id, htb_lsg_players_sensor_endpoint_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     return new Promise((resolve, reject) => {
@@ -91,6 +111,12 @@ class UserRepository {
           user.lsg_players_sensor_endpoint_id,
           user.lichess_activity_snapshot,
           user.lichess_last_status,
+          user.htb_academy_session,
+          user.htb_last_sync_at,
+          user.htb_progress_snapshot,
+          user.htb_last_status,
+          user.htb_lsg_sensor_endpoint_id,
+          user.htb_lsg_players_sensor_endpoint_id,
         ],
         function (err) {
           if (err) reject(err);
@@ -129,7 +155,9 @@ class UserRepository {
         lsg_access_token = ?, lsg_token_expires_at = ?,
         lichess_username = ?, lichess_access_token = ?, lichess_last_sync_at = ?,
         lsg_sensor_endpoint_id = ?, lsg_players_sensor_endpoint_id = ?,
-        lichess_activity_snapshot = ?, lichess_last_status = ?
+        lichess_activity_snapshot = ?, lichess_last_status = ?,
+        htb_academy_session = ?, htb_last_sync_at = ?, htb_progress_snapshot = ?, htb_last_status = ?,
+        htb_lsg_sensor_endpoint_id = ?, htb_lsg_players_sensor_endpoint_id = ?
       WHERE id_players = ?
     `;
 
@@ -149,6 +177,12 @@ class UserRepository {
           user.lsg_players_sensor_endpoint_id,
           user.lichess_activity_snapshot,
           user.lichess_last_status,
+          user.htb_academy_session,
+          user.htb_last_sync_at,
+          user.htb_progress_snapshot,
+          user.htb_last_status,
+          user.htb_lsg_sensor_endpoint_id,
+          user.htb_lsg_players_sensor_endpoint_id,
           user.id_players,
         ],
         function (err) {

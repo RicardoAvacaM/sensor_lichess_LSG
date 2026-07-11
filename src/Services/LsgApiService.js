@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LSG_CORE_URL, LSG_SENSOR_ENDPOINT_ID, LSG_MENTAL_ATTRIBUTE_ID } from '../config/api.js';
+import { LSG_CORE_URL, LSG_SENSOR_ENDPOINT_ID, HTB_LSG_SENSOR_ENDPOINT_ID, LSG_MENTAL_ATTRIBUTE_ID } from '../config/api.js';
 import LsgAuthService from './LsgAuthService.js';
 import UserRepository from '../Repositories/UserRepository.js';
 
@@ -116,6 +116,55 @@ class LsgApiService {
       }
     } catch (error) {
       console.error('No se pudo resolver sensor endpoint LSG:', error.message);
+    }
+    return null;
+  }
+
+  async resolveHtbSensorEndpointId(user) {
+    if (user.htb_lsg_sensor_endpoint_id) {
+      return user.htb_lsg_sensor_endpoint_id;
+    }
+    if (HTB_LSG_SENSOR_ENDPOINT_ID) {
+      return HTB_LSG_SENSOR_ENDPOINT_ID;
+    }
+
+    try {
+      const sensors = await this.listSensors(user);
+      const list = Array.isArray(sensors) ? sensors : sensors?.items || [];
+      const htbSensor = list.find((s) => {
+        const name = (s.name || '').toLowerCase();
+        return name.includes('htb') || name.includes('hackthebox') || name.includes('academy');
+      });
+      if (!htbSensor) return null;
+
+      const sensorId = htbSensor.id_online_sensor ?? htbSensor.id;
+      try {
+        await this.linkSensorToPlayer(user, sensorId);
+      } catch {
+        // Ya vinculado o sin permisos
+      }
+
+      const endpoints = await this.listSensorEndpoints(user, sensorId);
+      const epList = Array.isArray(endpoints) ? endpoints : endpoints?.items || [];
+      const endpoint = epList.find((e) => {
+        const name = (e.name || '').toLowerCase();
+        return name.includes('htb') || name.includes('hackthebox') || name.includes('academy');
+      }) || epList[0];
+
+      if (endpoint?.id_sensor_endpoint) {
+        try {
+          const linked = await this.linkEndpointToPlayer(user, endpoint.id_sensor_endpoint);
+          user.htb_lsg_players_sensor_endpoint_id =
+            linked?.id_players_sensor_endpoint ?? user.htb_lsg_players_sensor_endpoint_id;
+        } catch {
+          // Sin permisos de link-endpoint
+        }
+        user.htb_lsg_sensor_endpoint_id = endpoint.id_sensor_endpoint;
+        await UserRepository.updateUser(user);
+        return endpoint.id_sensor_endpoint;
+      }
+    } catch (error) {
+      console.error('No se pudo resolver sensor endpoint HTB LSG:', error.message);
     }
     return null;
   }

@@ -37,3 +37,26 @@ export const LICHESS_SCORING = {
  * - Entrenamiento de coordenadas (lichess.org/training/coordinate)
  */
 export const LICHESS_UNSUPPORTED_LEARN = ['Chess basics (/learn)', 'Coordenadas (/training/coordinate)'];
+
+/** HTB Academy */
+export const HTB_ACADEMY_URL = 'https://academy.hackthebox.com';
+export const HTB_ACADEMY_API_URL = `${HTB_ACADEMY_URL}/api/v2`;
+
+/**
+ * ID del endpoint de ingestión LSG para HTB (si null, auto-detect por nombre).
+ */
+export const HTB_LSG_SENSOR_ENDPOINT_ID = null;
+
+export const HTB_POLL_INTERVAL_MS = 3 * 60 * 1000;
+
+/** Puntos por avance en módulos Academy (progreso % y completado) */
+export const HTB_SCORING = {
+  progressPercent: {
+    label: 'Avance en módulo (% completado)',
+    pointsPerUnit: 2,
+  },
+  moduleCompleted: {
+    label: 'Módulo completado (100%)',
+    pointsPerUnit: 30,
+  },
+};
