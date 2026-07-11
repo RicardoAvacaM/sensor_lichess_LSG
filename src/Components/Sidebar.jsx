@@ -10,6 +10,9 @@ function Sidebar({ setCurrentView }) {
       <button className="button" onClick={() => setCurrentView("lichess")}>
         Lichess
       </button>
+      <button className="button" onClick={() => setCurrentView("chesscom")}>
+        Chess.com
+      </button>
       <button className="button" onClick={() => setCurrentView("htb")}>
         HTB Academy
       </button>

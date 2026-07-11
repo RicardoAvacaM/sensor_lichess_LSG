@@ -3,6 +3,7 @@ import axios from "axios";
 import "../styles/Dashboard.css";
 import "../styles/ButtonBackDashView.css";
 import LichessView from "./LichessView.jsx";
+import ChessComView from "./ChessComView.jsx";
 import HtbAcademyView from "./HtbAcademyView.jsx";
 import Sidebar from "../Components/Sidebar.jsx";
 
@@ -97,6 +98,12 @@ function Dashboard() {
           <>
             <button onClick={handleGoBack} className="back-button">Volver</button>
             <LichessView />
+          </>
+        )}
+        {currentView === "chesscom" && (
+          <>
+            <button onClick={handleGoBack} className="back-button">Volver</button>
+            <ChessComView />
           </>
         )}
         {currentView === "htb" && (

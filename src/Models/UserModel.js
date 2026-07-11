@@ -18,7 +18,13 @@ class UserModel {
     htb_progress_snapshot = null,
     htb_last_status = null,
     htb_lsg_sensor_endpoint_id = null,
-    htb_lsg_players_sensor_endpoint_id = null
+    htb_lsg_players_sensor_endpoint_id = null,
+    chesscom_username = null,
+    chesscom_last_sync_at = null,
+    chesscom_stats_snapshot = null,
+    chesscom_last_status = null,
+    chesscom_lsg_sensor_endpoint_id = null,
+    chesscom_lsg_players_sensor_endpoint_id = null
   ) {
     this.id_players = id_players;
     this.name = name;
@@ -39,6 +45,12 @@ class UserModel {
     this.htb_last_status = htb_last_status;
     this.htb_lsg_sensor_endpoint_id = htb_lsg_sensor_endpoint_id;
     this.htb_lsg_players_sensor_endpoint_id = htb_lsg_players_sensor_endpoint_id;
+    this.chesscom_username = chesscom_username;
+    this.chesscom_last_sync_at = chesscom_last_sync_at;
+    this.chesscom_stats_snapshot = chesscom_stats_snapshot;
+    this.chesscom_last_status = chesscom_last_status;
+    this.chesscom_lsg_sensor_endpoint_id = chesscom_lsg_sensor_endpoint_id;
+    this.chesscom_lsg_players_sensor_endpoint_id = chesscom_lsg_players_sensor_endpoint_id;
   }
 }
 

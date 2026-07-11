@@ -60,3 +60,17 @@ export const HTB_SCORING = {
     pointsPerUnit: 30,
   },
 };
+
+/** Chess.com Published-Data API */
+export const CHESSCOM_API_URL = 'https://api.chess.com/pub';
+export const CHESSCOM_LSG_SENSOR_ENDPOINT_ID = null;
+export const CHESSCOM_POLL_INTERVAL_MS = 3 * 60 * 1000;
+export const CHESSCOM_USER_AGENT = 'LSG-Sensor-ChessCom/1.0 (contact: local-dev)';
+
+export const CHESSCOM_SCORING = {
+  gamePlayed: { label: 'Partidas jugadas (blitz, bullet, rapid)', pointsPerUnit: 8 },
+  gameWon: { label: 'Partidas ganadas', pointsPerUnit: 4 },
+  eloGain: { label: 'Subida de rating', pointsPerUnit: 2, cap: 30 },
+  puzzleRush: { label: 'Puzzle Rush (mejor score)', pointsPerUnit: 1, cap: 40 },
+  tactics: { label: 'Subida rating Tactics', pointsPerUnit: 2, cap: 30 },
+};

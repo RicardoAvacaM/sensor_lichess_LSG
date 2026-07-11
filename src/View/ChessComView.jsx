@@ -1,0 +1,253 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import '../styles/LichessView.css';
+
+const API = 'http://localhost:8080/users';
+const SYNC_INTERVAL_MS = 3 * 60 * 1000;
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('es-CL');
+}
+
+function ChessComView() {
+  const [message, setMessage] = useState('');
+  const [hasPlayer, setHasPlayer] = useState(false);
+  const [username, setUsername] = useState('');
+  const [inputUsername, setInputUsername] = useState('');
+  const [status, setStatus] = useState(null);
+  const [transferMessage, setTransferMessage] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const checkRes = await axios.get(`${API}/check-chesscom-user`);
+      if (checkRes.data?.userCreated) {
+        setHasPlayer(true);
+      }
+
+      const statusRes = await axios.get(`${API}/chesscom/status`);
+      if (statusRes.status === 200) {
+        setStatus(statusRes.data.data);
+        if (statusRes.data.data?.username) {
+          setUsername(statusRes.data.data.username);
+          setHasPlayer(true);
+        }
+        if (statusRes.data.data?.message) {
+          setMessage(statusRes.data.data.message);
+        }
+      }
+    } catch (error) {
+      if (error.response?.status !== 400) {
+        setMessage('Error al obtener estado del sensor Chess.com.');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, SYNC_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
+
+  const handleLink = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API}/chesscom/link`, {
+        username: inputUsername.trim(),
+      });
+      if (response.status === 200) {
+        setMessage(`Chess.com conectado: ${response.data.username}. Línea base guardada.`);
+        setHasPlayer(true);
+        setUsername(response.data.username);
+        setInputUsername('');
+        fetchStatus();
+      }
+    } catch (error) {
+      setMessage(error.response?.data?.error || error.message);
+    }
+  };
+
+  const handleTransfer = async () => {
+    setTransferMessage('');
+    setTransferring(true);
+    try {
+      const response = await axios.post(`${API}/chesscom/transfer`);
+      if (response.status === 200) {
+        const amount = response.data.data?.amount ?? 0;
+        setTransferMessage(`${amount} puntos enviados a tu perfil LSG.`);
+        setMessage(`${amount} puntos Mental acreditados en tu perfil.`);
+        await fetchStatus();
+      }
+    } catch (error) {
+      setTransferMessage(error.response?.data?.error || error.message);
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      const response = await axios.get(`${API}/chesscom/poll`);
+      const points = response.data.data?.points ?? 0;
+      if (points > 0) {
+        setMessage(`+${points} pts acumulados. Canjea para enviarlos a tu perfil.`);
+      } else {
+        setMessage('Sin avance nuevo desde la última sincronización.');
+      }
+      await fetchStatus();
+    } catch (error) {
+      setMessage('Error al sincronizar: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const accumulatedPoints = status?.accumulatedPoints ?? 0;
+
+  const sections = status?.sections?.length
+    ? status.sections
+    : (status?.scoringRules || []).map((rule) => ({
+        id: rule.id,
+        label: rule.label,
+        count: 0,
+        pointsPerUnit: rule.pointsPerUnit,
+        points: 0,
+        cap: rule.cap,
+      }));
+
+  const ratings = status?.ratings || {};
+
+  return (
+    <div className="login-container lichess-view">
+      {hasPlayer ? (
+        <div className="lichess-dashboard">
+          <header className="lichess-header">
+            <h1>Sensor Chess.com</h1>
+            <p className="lichess-user">
+              Cuenta: <strong>{username}</strong>
+            </p>
+            <p className="lichess-sync-note">
+              Sincronización automática cada 3 minutos
+              {status?.lastSyncAt && <> · Última: {formatDate(status.lastSyncAt)}</>}
+            </p>
+            {status?.baselineSavedAt && (
+              <p className="lichess-sync-note">
+                Último estado guardado: {formatDate(status.baselineSavedAt)}
+              </p>
+            )}
+            <button
+              type="button"
+              className="lichess-sync-btn"
+              onClick={handleSyncNow}
+              disabled={syncing}
+            >
+              {syncing ? 'Sincronizando…' : 'Sincronizar ahora (debug)'}
+            </button>
+          </header>
+
+          <section className="lichess-balance">
+            <h2>Saldo Mental (LSG)</h2>
+            <p className="lichess-balance-value">
+              {status?.mentalBalance ?? 0} <span>pts</span>
+            </p>
+            {accumulatedPoints > 0 && (
+              <p className="lichess-last-cycle">
+                Pendiente de enviar: {accumulatedPoints} pts
+                {status?.lastCyclePoints > 0 && (
+                  <> · Último ciclo: +{status.lastCyclePoints} pts</>
+                )}
+              </p>
+            )}
+            {(ratings.blitz || ratings.bullet || ratings.rapid) && (
+              <p className="lichess-last-cycle">
+                Ratings: Blitz {ratings.blitz ?? '—'} · Bullet {ratings.bullet ?? '—'} · Rapid{' '}
+                {ratings.rapid ?? '—'}
+              </p>
+            )}
+          </section>
+
+          <section className="lichess-sections">
+            <h2>Actividad detectada</h2>
+            <p className="lichess-sections-hint">
+              Los puntos se calculan por la diferencia vs el último estado guardado (persiste al
+              cerrar la app). {status?.apiNote}
+            </p>
+            <ul className="lichess-section-list">
+              {sections.map((section) => (
+                <li key={section.id} className="lichess-section-item">
+                  <div className="lichess-section-main">
+                    <span className="lichess-section-label">{section.label}</span>
+                    {section.count != null && (
+                      <span className="lichess-section-count">{section.count}</span>
+                    )}
+                  </div>
+                  <div className="lichess-section-points">
+                    <span className="lichess-section-rate">
+                      +{section.pointsPerUnit} pts
+                      {section.cap ? ` (máx. ${section.cap}/ciclo)` : ''}
+                    </span>
+                    <span className="lichess-section-earned">
+                      {section.points > 0 ? `+${section.points} pts` : '0 pts'}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="lichess-redeem">
+            <h2>Canjear</h2>
+            <p className="lichess-redeem-hint">
+              Envía los puntos acumulados a tu perfil LSG (dimensión Mental).
+            </p>
+            <p className="lichess-redeem-pending">
+              {accumulatedPoints > 0
+                ? `${accumulatedPoints} pts listos para enviar`
+                : 'No hay puntos acumulados. Juega en Chess.com y sincroniza.'}
+            </p>
+            <button
+              type="button"
+              className="lichess-redeem-btn"
+              onClick={handleTransfer}
+              disabled={transferring || accumulatedPoints <= 0}
+            >
+              {transferring
+                ? 'Enviando…'
+                : `Canjear ${accumulatedPoints > 0 ? accumulatedPoints : ''} pts al perfil`}
+            </button>
+            {transferMessage && <p className="lichess-redeem-message">{transferMessage}</p>}
+          </section>
+
+          {message && <p className="lichess-message">{message}</p>}
+        </div>
+      ) : (
+        <div className="login-form">
+          <h1>Conectar Chess.com</h1>
+          <p className="lichess-hint">
+            Ingresa tu username público de Chess.com. No necesitas token: usamos la API pública
+            (partidas, rating, Puzzle Rush y Tactics).
+          </p>
+          <form onSubmit={handleLink}>
+            <label>Username Chess.com:</label>
+            <input
+              type="text"
+              placeholder="tu_usuario"
+              value={inputUsername}
+              onChange={(e) => setInputUsername(e.target.value)}
+              required
+            />
+            <button type="submit" disabled={!inputUsername.trim()}>
+              Conectar
+            </button>
+          </form>
+          {message && <p>{message}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ChessComView;

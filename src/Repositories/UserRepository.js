@@ -19,6 +19,12 @@ const NEW_COLUMNS = [
   'htb_last_status TEXT',
   'htb_lsg_sensor_endpoint_id TEXT',
   'htb_lsg_players_sensor_endpoint_id TEXT',
+  'chesscom_username TEXT',
+  'chesscom_last_sync_at TEXT',
+  'chesscom_stats_snapshot TEXT',
+  'chesscom_last_status TEXT',
+  'chesscom_lsg_sensor_endpoint_id TEXT',
+  'chesscom_lsg_players_sensor_endpoint_id TEXT',
 ];
 
 db.serialize(() => {
@@ -42,7 +48,13 @@ db.serialize(() => {
       htb_progress_snapshot TEXT,
       htb_last_status TEXT,
       htb_lsg_sensor_endpoint_id TEXT,
-      htb_lsg_players_sensor_endpoint_id TEXT
+      htb_lsg_players_sensor_endpoint_id TEXT,
+      chesscom_username TEXT,
+      chesscom_last_sync_at TEXT,
+      chesscom_stats_snapshot TEXT,
+      chesscom_last_status TEXT,
+      chesscom_lsg_sensor_endpoint_id TEXT,
+      chesscom_lsg_players_sensor_endpoint_id TEXT
     )
   `);
 
@@ -72,7 +84,13 @@ function rowToUser(row) {
     row.htb_progress_snapshot,
     row.htb_last_status,
     row.htb_lsg_sensor_endpoint_id,
-    row.htb_lsg_players_sensor_endpoint_id
+    row.htb_lsg_players_sensor_endpoint_id,
+    row.chesscom_username,
+    row.chesscom_last_sync_at,
+    row.chesscom_stats_snapshot,
+    row.chesscom_last_status,
+    row.chesscom_lsg_sensor_endpoint_id,
+    row.chesscom_lsg_players_sensor_endpoint_id
   );
 }
 
@@ -90,8 +108,10 @@ class UserRepository {
         lsg_sensor_endpoint_id, lsg_players_sensor_endpoint_id,
         lichess_activity_snapshot, lichess_last_status,
         htb_academy_session, htb_last_sync_at, htb_progress_snapshot, htb_last_status,
-        htb_lsg_sensor_endpoint_id, htb_lsg_players_sensor_endpoint_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        htb_lsg_sensor_endpoint_id, htb_lsg_players_sensor_endpoint_id,
+        chesscom_username, chesscom_last_sync_at, chesscom_stats_snapshot, chesscom_last_status,
+        chesscom_lsg_sensor_endpoint_id, chesscom_lsg_players_sensor_endpoint_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     return new Promise((resolve, reject) => {
@@ -117,6 +137,12 @@ class UserRepository {
           user.htb_last_status,
           user.htb_lsg_sensor_endpoint_id,
           user.htb_lsg_players_sensor_endpoint_id,
+          user.chesscom_username,
+          user.chesscom_last_sync_at,
+          user.chesscom_stats_snapshot,
+          user.chesscom_last_status,
+          user.chesscom_lsg_sensor_endpoint_id,
+          user.chesscom_lsg_players_sensor_endpoint_id,
         ],
         function (err) {
           if (err) reject(err);
@@ -157,7 +183,9 @@ class UserRepository {
         lsg_sensor_endpoint_id = ?, lsg_players_sensor_endpoint_id = ?,
         lichess_activity_snapshot = ?, lichess_last_status = ?,
         htb_academy_session = ?, htb_last_sync_at = ?, htb_progress_snapshot = ?, htb_last_status = ?,
-        htb_lsg_sensor_endpoint_id = ?, htb_lsg_players_sensor_endpoint_id = ?
+        htb_lsg_sensor_endpoint_id = ?, htb_lsg_players_sensor_endpoint_id = ?,
+        chesscom_username = ?, chesscom_last_sync_at = ?, chesscom_stats_snapshot = ?, chesscom_last_status = ?,
+        chesscom_lsg_sensor_endpoint_id = ?, chesscom_lsg_players_sensor_endpoint_id = ?
       WHERE id_players = ?
     `;
 
@@ -183,6 +211,12 @@ class UserRepository {
           user.htb_last_status,
           user.htb_lsg_sensor_endpoint_id,
           user.htb_lsg_players_sensor_endpoint_id,
+          user.chesscom_username,
+          user.chesscom_last_sync_at,
+          user.chesscom_stats_snapshot,
+          user.chesscom_last_status,
+          user.chesscom_lsg_sensor_endpoint_id,
+          user.chesscom_lsg_players_sensor_endpoint_id,
           user.id_players,
         ],
         function (err) {
