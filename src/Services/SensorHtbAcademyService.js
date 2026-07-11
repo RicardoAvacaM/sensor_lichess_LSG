@@ -122,9 +122,25 @@ class SensorHtbAcademyService {
       throw new Error('No hay usuario LSG registrado. Inicia sesión en LSG primero.');
     }
 
+    const previousStatus = this.parseLastStatus(user);
+    const baseline = this.buildSnapshotFromModules(modules);
+
+    // Línea base: el progreso actual no da puntos; solo el avance futuro (delta).
     user.htb_academy_session = session;
-    user.htb_progress_snapshot = JSON.stringify(this.buildSnapshotFromModules(modules));
+    user.htb_progress_snapshot = JSON.stringify(baseline);
     user.htb_last_sync_at = String(Date.now());
+    user.htb_last_status = JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      lastCyclePoints: 0,
+      accumulatedPoints: previousStatus.accumulatedPoints ?? 0,
+      accumulatedSections: previousStatus.accumulatedSections ?? this.buildEmptySections(),
+      pendingIngestEventIds: previousStatus.pendingIngestEventIds ?? [],
+      ingested: previousStatus.ingested ?? false,
+      modulesInProgress: modules.filter((m) => !m.completed && m.progress > 0).length,
+      baselineSavedAt: new Date().toISOString(),
+      message:
+        'Línea base de avance guardada. Los puntos se otorgan solo por progreso nuevo desde ahora.',
+    });
     await UserRepository.updateUser(user);
 
     const inProgress = modules.filter((m) => !m.completed && m.progress > 0).length;
@@ -135,6 +151,7 @@ class SensorHtbAcademyService {
       modulesTracked: modules.length,
       inProgress,
       completed,
+      baselineSaved: true,
     };
   }
 
@@ -153,14 +170,37 @@ class SensorHtbAcademyService {
         name: mod.name,
       };
     }
-    return { modules: modulesMap };
+    return { modules: modulesMap, savedAt: new Date().toISOString() };
+  }
+
+  /**
+   * Conserva módulos ya conocidos y actualiza con el estado actual.
+   * Así, al cerrar/abrir la app, el contraste de progreso no pierde historial.
+   */
+  mergeSnapshot(prevSnapshot, currentModules) {
+    const merged = {
+      modules: { ...(prevSnapshot?.modules || {}) },
+      savedAt: new Date().toISOString(),
+    };
+    for (const mod of currentModules) {
+      merged.modules[mod.id] = {
+        progress: mod.progress,
+        completed: mod.completed,
+        name: mod.name,
+      };
+    }
+    return merged;
   }
 
   parseSnapshot(user) {
     try {
-      return JSON.parse(user.htb_progress_snapshot || '{"modules":{}}');
+      const parsed = JSON.parse(user.htb_progress_snapshot || '{"modules":{}}');
+      if (!parsed.modules || typeof parsed.modules !== 'object') {
+        return { modules: {}, savedAt: null };
+      }
+      return parsed;
     } catch {
-      return { modules: {} };
+      return { modules: {}, savedAt: null };
     }
   }
 
@@ -322,7 +362,8 @@ class SensorHtbAcademyService {
     const lastStatus = this.parseLastStatus(user);
     const prevAccumulated = lastStatus.accumulatedSections ?? [];
 
-    const newSnapshot = this.buildSnapshotFromModules(currentModules);
+    // Persistir el nuevo estado como línea base para el próximo ciclo / reinicio de app.
+    const newSnapshot = this.mergeSnapshot(prevSnapshot, currentModules);
     user.htb_progress_snapshot = JSON.stringify(newSnapshot);
     user.htb_last_sync_at = String(Date.now());
 
@@ -335,7 +376,8 @@ class SensorHtbAcademyService {
         accumulatedPoints: lastStatus.accumulatedPoints ?? 0,
         accumulatedSections: prevAccumulated,
         modulesInProgress: currentModules.filter((m) => !m.completed).length,
-        message: 'Sin avance nuevo en módulos Academy.',
+        baselineSavedAt: newSnapshot.savedAt,
+        message: 'Sin avance nuevo en módulos Academy. Último estado de progreso guardado.',
       });
       return {
         points: 0,
@@ -343,6 +385,7 @@ class SensorHtbAcademyService {
         sections: prevAccumulated,
         accumulatedPoints: lastStatus.accumulatedPoints ?? 0,
         modules: currentModules,
+        comparedAgainst: prevSnapshot.savedAt || null,
       };
     }
 
@@ -384,6 +427,15 @@ class SensorHtbAcademyService {
           accumulatedSections,
           ingested: false,
           modulesInProgress: currentModules.filter((m) => !m.completed).length,
+          baselineSavedAt: newSnapshot.savedAt,
+          lastDelta: moduleDeltas.map((d) => ({
+            moduleId: d.id,
+            name: d.name,
+            from: d.progressFrom,
+            to: d.progressTo,
+            gain: d.progressGain,
+            points: d.points,
+          })),
           message: 'Puntos acumulados; no se pudo registrar el evento en LSG.',
         });
         return {
@@ -393,6 +445,7 @@ class SensorHtbAcademyService {
           accumulatedPoints,
           ingested: false,
           modules: currentModules,
+          comparedAgainst: prevSnapshot.savedAt || null,
         };
       }
     }
@@ -410,10 +463,22 @@ class SensorHtbAcademyService {
       ],
       ingested: Boolean(ingestEventId),
       modulesInProgress: currentModules.filter((m) => !m.completed).length,
-      message: `+${total} pts acumulados por avance en Academy. Canjea para enviarlos a tu perfil.`,
+      baselineSavedAt: newSnapshot.savedAt,
+      lastDelta: moduleDeltas.map((d) => ({
+        moduleId: d.id,
+        name: d.name,
+        from: d.progressFrom,
+        to: d.progressTo,
+        gain: d.progressGain,
+        points: d.points,
+      })),
+      message: `+${total} pts por avance (diferencia vs último estado guardado). Canjea para enviarlos a tu perfil.`,
     });
 
-    console.log(`HTB Academy: +${total} pts acumulados (total pendiente: ${accumulatedPoints}).`);
+    console.log(
+      `HTB Academy: +${total} pts por delta de progreso (pendiente: ${accumulatedPoints}).`,
+      moduleDeltas.map((d) => `${d.name}: ${d.progressFrom}% → ${d.progressTo}%`)
+    );
     return {
       points: total,
       moduleDeltas,
@@ -421,6 +486,7 @@ class SensorHtbAcademyService {
       accumulatedPoints,
       ingested: Boolean(ingestEventId),
       modules: currentModules,
+      comparedAgainst: prevSnapshot.savedAt || null,
     };
   }
 
@@ -487,6 +553,12 @@ class SensorHtbAcademyService {
     }
 
     const accumulatedSections = lastStatus.accumulatedSections ?? [];
+    const savedModules = Object.entries(snapshot.modules || {}).map(([id, m]) => ({
+      id,
+      name: m.name,
+      progress: m.progress,
+      completed: m.completed,
+    }));
 
     return {
       linked: true,
@@ -511,6 +583,9 @@ class SensorHtbAcademyService {
             tier: m.tier,
           })),
       modules: liveModules,
+      savedModules,
+      baselineSavedAt: snapshot.savedAt || lastStatus.baselineSavedAt || null,
+      lastDelta: lastStatus.lastDelta ?? [],
       modulesInProgress: liveModules.filter((m) => !m.completed && m.progress > 0).length,
       modulesCompleted: liveModules.filter((m) => m.completed).length,
       ingested: lastStatus.ingested ?? false,

@@ -71,7 +71,7 @@ function HtbAcademyView() {
       if (response.status === 200) {
         setHasPlayer(true);
         setMessage(
-          `HTB Academy conectado. ${response.data.modulesTracked ?? 0} módulos con progreso.`
+          `HTB Academy conectado. Línea base guardada (${response.data.modulesTracked ?? 0} módulos). Solo contarás avance nuevo.`
         );
         setManualSession('');
         await fetchStatus();
@@ -220,8 +220,28 @@ function HtbAcademyView() {
             <p className="htb-scoring-hint">
               Ganas +{scoringRules.find((r) => r.id === 'progressPercent')?.pointsPerUnit ?? 2} pts
               por cada 1% de avance y +{scoringRules.find((r) => r.id === 'moduleCompleted')?.pointsPerUnit ?? 30} pts
-              al completar un módulo.
+              al completar un módulo. Los puntos se calculan por la diferencia respecto al último
+              estado guardado (persiste al cerrar la app).
             </p>
+            {status?.baselineSavedAt && (
+              <p className="lichess-sync-note">
+                Último estado de avance guardado: {formatDate(status.baselineSavedAt)}
+              </p>
+            )}
+            {Array.isArray(status?.lastDelta) && status.lastDelta.length > 0 && (
+              <ul className="lichess-section-list htb-last-delta">
+                {status.lastDelta.map((d) => (
+                  <li key={d.moduleId} className="lichess-section-item">
+                    <div className="lichess-section-main">
+                      <span className="lichess-section-label">{d.name}</span>
+                      <span className="lichess-section-count">
+                        {d.from}% → {d.to}% · +{d.points} pts
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
             <ul className="lichess-section-list">
               {displayModules.length === 0 ? (
                 <li className="lichess-section-item">
@@ -234,6 +254,9 @@ function HtbAcademyView() {
                   const section = (status?.sections || []).find(
                     (s) => String(s.moduleId) === String(mod.id) || s.id === `module-${mod.id}`
                   );
+                  const saved = (status?.savedModules || []).find(
+                    (s) => String(s.id) === String(mod.id)
+                  );
                   return (
                     <li key={mod.id} className="lichess-section-item">
                       <div className="lichess-section-main">
@@ -244,6 +267,11 @@ function HtbAcademyView() {
                         <p className="htb-module-meta">
                           {[mod.difficulty, mod.tier].filter(Boolean).join(' · ')}
                           {mod.completed ? ' · Completado' : ''}
+                        </p>
+                      )}
+                      {saved && Number(saved.progress) !== Number(mod.progress) && (
+                        <p className="htb-module-meta">
+                          Guardado: {saved.progress}% → actual: {mod.progress}%
                         </p>
                       )}
                       <div className="htb-progress-bar-wrap">
