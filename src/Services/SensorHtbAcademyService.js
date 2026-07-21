@@ -54,6 +54,7 @@ class SensorHtbAcademyService {
 
   academyHeaders(sessionOrCookies) {
     const cookie = String(sessionOrCookies).includes('htb_academy_session=')
+      || String(sessionOrCookies).includes('academy_session=')
       ? String(sessionOrCookies)
       : `htb_academy_session=${sessionOrCookies}`;
     const headers = {
@@ -61,6 +62,7 @@ class SensorHtbAcademyService {
       Accept: 'application/json, text/plain, */*',
       Referer: 'https://academy.hackthebox.com/app/dashboard',
       Origin: 'https://academy.hackthebox.com',
+      'X-Requested-With': 'XMLHttpRequest',
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
@@ -73,6 +75,8 @@ class SensorHtbAcademyService {
     if (Array.isArray(body)) return body;
     if (Array.isArray(body?.data)) return body.data;
     if (Array.isArray(body?.modules)) return body.modules;
+    if (Array.isArray(body?.data?.data)) return body.data.data;
+    if (Array.isArray(body?.data?.modules)) return body.data.modules;
     if (typeof body === 'string' && body.includes('<html')) {
       throw new Error('Sesión HTB inválida. Inicia sesión de nuevo en Academy.');
     }
@@ -159,6 +163,19 @@ class SensorHtbAcademyService {
     const users = await UserRepository.getUsers();
     const user = users[0];
     return Boolean(user?.htb_academy_session);
+  }
+
+  async unlinkAccount() {
+    const users = await UserRepository.getUsers();
+    const user = users[0];
+    if (!user) throw new Error('No hay usuario LSG registrado.');
+
+    user.htb_academy_session = null;
+    user.htb_last_sync_at = null;
+    user.htb_progress_snapshot = null;
+    user.htb_last_status = null;
+    await UserRepository.updateUser(user);
+    return true;
   }
 
   buildSnapshotFromModules(modules) {

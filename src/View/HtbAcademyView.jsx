@@ -25,6 +25,7 @@ function HtbAcademyView() {
   const [transferMessage, setTransferMessage] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
   const [manualSession, setManualSession] = useState('');
   const [embeddedLogin, setEmbeddedLogin] = useState(hasEmbeddedLogin);
@@ -101,6 +102,8 @@ function HtbAcademyView() {
       if (result?.ok && result.session) {
         setMessage('Sesión capturada. Vinculando con el sensor…');
         await linkSession(result.session);
+        setHasPlayer(true);
+        setStatus((prev) => (prev ? { ...prev, sessionExpired: false } : prev));
       } else {
         setMessage(result?.error || 'No se pudo obtener la sesión de Academy.');
       }
@@ -156,6 +159,29 @@ function HtbAcademyView() {
     }
   };
 
+  const handleUnlink = async () => {
+    const pending = status?.accumulatedPoints ?? 0;
+    const confirmMsg =
+      pending > 0
+        ? `Hay ${pending} pts pendientes de canje. Al desvincular se perderán. ¿Continuar?`
+        : '¿Desvincular HTB Academy para iniciar sesión con otra cuenta?';
+    if (!window.confirm(confirmMsg)) return;
+
+    setUnlinking(true);
+    try {
+      await axios.post(`${API}/htb/unlink`);
+      setHasPlayer(false);
+      setStatus(null);
+      setManualSession('');
+      setTransferMessage('');
+      setMessage('Cuenta HTB Academy desvinculada. Puedes iniciar sesión con otra cuenta.');
+    } catch (error) {
+      setMessage(error.response?.data?.error || error.message);
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const accumulatedPoints = status?.accumulatedPoints ?? 0;
 
   const displayModules = status?.modules?.length
@@ -197,6 +223,14 @@ function HtbAcademyView() {
               disabled={syncing}
             >
               {syncing ? 'Sincronizando…' : 'Sincronizar ahora (debug)'}
+            </button>
+            <button
+              type="button"
+              className="lichess-unlink-btn"
+              onClick={handleUnlink}
+              disabled={unlinking}
+            >
+              {unlinking ? 'Desvinculando…' : 'Desvincular cuenta'}
             </button>
           </header>
 
@@ -324,6 +358,17 @@ function HtbAcademyView() {
             <p className="htb-expired-banner">
               Tu sesión expiró. Inicia sesión de nuevo para seguir sincronizando.
             </p>
+          )}
+          {(hasPlayer || status?.sessionExpired) && (
+            <button
+              type="button"
+              className="lichess-unlink-btn"
+              onClick={handleUnlink}
+              disabled={unlinking}
+              style={{ marginBottom: 12 }}
+            >
+              {unlinking ? 'Desvinculando…' : 'Desvincular y usar otra cuenta'}
+            </button>
           )}
           <p className="lichess-hint">
             Pulsa el botón, inicia sesión en la ventana de HTB Academy y vuelve al dashboard.

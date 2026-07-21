@@ -28,6 +28,15 @@ class SensorLichessController {
     }
   }
 
+  async unlink(req, res) {
+    try {
+      await this.sensorLichessService.unlinkAccount();
+      return res.status(200).json({ message: 'Cuenta Lichess desvinculada.' });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+
   async getRecentPoints(req, res) {
     try {
       const data = await this.sensorLichessService.getRecentPoints();

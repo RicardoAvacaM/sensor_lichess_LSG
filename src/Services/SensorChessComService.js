@@ -99,6 +99,19 @@ class SensorChessComService {
     return Boolean(user?.chesscom_username);
   }
 
+  async unlinkAccount() {
+    const users = await UserRepository.getUsers();
+    const user = users[0];
+    if (!user) throw new Error('No hay usuario LSG registrado.');
+
+    user.chesscom_username = null;
+    user.chesscom_last_sync_at = null;
+    user.chesscom_stats_snapshot = null;
+    user.chesscom_last_status = null;
+    await UserRepository.updateUser(user);
+    return true;
+  }
+
   async fetchStats(username) {
     const response = await this.httpClient.get(
       `${CHESSCOM_API_URL}/player/${encodeURIComponent(username.toLowerCase())}/stats`

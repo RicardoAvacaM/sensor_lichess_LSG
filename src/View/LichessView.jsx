@@ -19,6 +19,7 @@ function LichessView() {
   const [transferMessage, setTransferMessage] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -100,6 +101,30 @@ function LichessView() {
     }
   };
 
+  const handleUnlink = async () => {
+    const pending = status?.accumulatedPoints ?? 0;
+    const confirmMsg =
+      pending > 0
+        ? `Hay ${pending} pts pendientes de canje. Al desvincular se perderán. ¿Continuar?`
+        : '¿Desvincular Lichess para conectar otra cuenta?';
+    if (!window.confirm(confirmMsg)) return;
+
+    setUnlinking(true);
+    try {
+      await axios.post(`${API}/lichess/unlink`);
+      setHasPlayer(false);
+      setUsername('');
+      setStatus(null);
+      setToken('');
+      setTransferMessage('');
+      setMessage('Cuenta Lichess desvinculada. Puedes conectar otra con un nuevo token.');
+    } catch (error) {
+      setMessage(error.response?.data?.error || error.message);
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const accumulatedPoints = status?.accumulatedPoints ?? 0;
 
   const sections = status?.sections?.length
@@ -135,6 +160,14 @@ function LichessView() {
               disabled={syncing}
             >
               {syncing ? 'Sincronizando…' : 'Sincronizar ahora (debug)'}
+            </button>
+            <button
+              type="button"
+              className="lichess-unlink-btn"
+              onClick={handleUnlink}
+              disabled={unlinking}
+            >
+              {unlinking ? 'Desvinculando…' : 'Desvincular cuenta'}
             </button>
           </header>
 

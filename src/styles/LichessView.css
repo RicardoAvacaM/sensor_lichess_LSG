@@ -47,6 +47,26 @@
   cursor: wait;
 }
 
+.lichess-unlink-btn {
+  margin-left: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  background: transparent;
+  color: #f08080;
+  border: 1px solid rgba(240, 128, 128, 0.5);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.lichess-unlink-btn:hover:not(:disabled) {
+  background: rgba(240, 128, 128, 0.12);
+}
+
+.lichess-unlink-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .lichess-hint {
   max-width: 420px;
   text-align: center;

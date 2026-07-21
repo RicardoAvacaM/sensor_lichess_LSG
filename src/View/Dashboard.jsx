@@ -51,7 +51,7 @@ function Dashboard() {
         );
 
         if (increased && !firstLoadRef.current) {
-          alert("¡Has ganado puntos bGames!");
+          alert("¡Has ganado puntos LifeSync-Games!");
         }
 
         firstLoadRef.current = false;

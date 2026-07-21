@@ -28,6 +28,15 @@ class SensorChessComController {
     }
   }
 
+  async unlink(req, res) {
+    try {
+      await this.sensorChessComService.unlinkAccount();
+      return res.status(200).json({ message: 'Cuenta Chess.com desvinculada.' });
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+
   async getStatus(req, res) {
     try {
       const data = await this.sensorChessComService.getSensorStatus();

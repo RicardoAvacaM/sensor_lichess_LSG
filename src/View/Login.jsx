@@ -31,7 +31,7 @@ function Login({ setView }) {
 
   return (
     <div className="loginBGames-container">
-      <h1>LifeSync Games</h1>
+      <h1>LifeSync-Games</h1>
       <p className="loginBGames-subtitle">Inicia sesión para continuar</p>
       <form onSubmit={handleSubmit}>
         <div>

@@ -17,7 +17,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
-        title: 'Sensor bGames',
+        title: 'Sensor LifeSync-Games',
         resizable: false,
         maximizable: false,
         icon: join(__dirname, 'icono.ico'), // Ahora sí puedes usar 'join'
@@ -74,7 +74,7 @@ app.on('ready', () => {
             }
         }
     ]);
-    tray.setToolTip('Sensor bGames');
+    tray.setToolTip('Sensor LifeSync-Games');
     tray.setContextMenu(contextMenu);
 
     app.setLoginItemSettings({
@@ -104,14 +104,16 @@ const HTB_ACADEMY_PARTITION = 'persist:htb-academy';
 const HTB_ACADEMY_URL = 'https://academy.hackthebox.com';
 const HTB_LOGIN_START_URL = `${HTB_ACADEMY_URL}/sso/redirect?redirect=${encodeURIComponent('/app/dashboard')}`;
 
-/** Solo borra la cookie de sesión anterior; conserva localStorage (device ID de HTB Account). */
+const HTB_SESSION_COOKIE_NAMES = new Set(['htb_academy_session', 'academy_session']);
+
+/** Solo borra cookies de sesión Academy; conserva localStorage (device ID de HTB Account). */
 async function clearPreviousAcademySession(academySession) {
-    const cookies = await academySession.cookies.get({ url: HTB_ACADEMY_URL });
+    const cookies = await academySession.cookies.get({});
     for (const cookie of cookies) {
-        if (cookie.name !== 'htb_academy_session') continue;
+        if (!HTB_SESSION_COOKIE_NAMES.has(cookie.name)) continue;
         const host = (cookie.domain || '').startsWith('.')
             ? cookie.domain.slice(1)
-            : cookie.domain;
+            : cookie.domain || 'academy.hackthebox.com';
         const url = `https://${host}${cookie.path || '/'}`;
         try {
             await academySession.cookies.remove(url, cookie.name);
@@ -122,27 +124,95 @@ async function clearPreviousAcademySession(academySession) {
 }
 
 async function buildAcademyCookieHeader(academySession) {
-    const cookies = await academySession.cookies.get({ url: HTB_ACADEMY_URL });
-    const sessionCookie = cookies.find((c) => c.name === 'htb_academy_session');
+    const byUrl = await academySession.cookies.get({ url: HTB_ACADEMY_URL });
+    const all = await academySession.cookies.get({});
+    const merged = new Map();
+    for (const cookie of [...byUrl, ...all]) {
+        const domain = String(cookie.domain || '');
+        if (
+            domain.includes('academy.hackthebox.com') ||
+            domain === '.hackthebox.com' ||
+            domain === 'hackthebox.com'
+        ) {
+            merged.set(cookie.name, cookie);
+        }
+    }
+    const cookies = [...merged.values()];
+    const sessionCookie = cookies.find((c) => HTB_SESSION_COOKIE_NAMES.has(c.name));
     if (!sessionCookie?.value) return null;
     return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 }
 
-async function verifyAcademySession(cookieHeader) {
+function readCookieValue(cookieHeader, name) {
+    const match = String(cookieHeader).match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+    if (!match) return null;
     try {
-        const response = await net.fetch(`${HTB_ACADEMY_URL}/api/v2/modules`, {
-            headers: {
-                Cookie: cookieHeader,
-                Accept: 'application/json, text/plain, */*',
-                Referer: `${HTB_ACADEMY_URL}/app/dashboard`,
-                Origin: HTB_ACADEMY_URL,
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            },
-        });
+        return decodeURIComponent(match[1]);
+    } catch {
+        return match[1];
+    }
+}
+
+function isModulesPayload(body) {
+    return (
+        Array.isArray(body) ||
+        Array.isArray(body?.data) ||
+        Array.isArray(body?.modules) ||
+        Array.isArray(body?.data?.data) ||
+        Array.isArray(body?.data?.modules)
+    );
+}
+
+async function verifyAcademySessionWithNet(cookieHeader) {
+    try {
+        const headers = {
+            Cookie: cookieHeader,
+            Accept: 'application/json, text/plain, */*',
+            Referer: `${HTB_ACADEMY_URL}/app/dashboard`,
+            Origin: HTB_ACADEMY_URL,
+            'X-Requested-With': 'XMLHttpRequest',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        };
+        const xsrf = readCookieValue(cookieHeader, 'XSRF-TOKEN');
+        if (xsrf) headers['X-XSRF-TOKEN'] = xsrf;
+
+        const response = await net.fetch(`${HTB_ACADEMY_URL}/api/v2/modules`, { headers });
         if (!response.ok) return false;
         const body = await response.json();
-        return Array.isArray(body?.data) || Array.isArray(body);
+        return isModulesPayload(body);
+    } catch {
+        return false;
+    }
+}
+
+/** Verifica con las cookies reales del navegador embebido (más fiable que net.fetch). */
+async function verifyAcademySessionInWindow(loginWindow) {
+    if (loginWindow.isDestroyed()) return false;
+    const url = loginWindow.webContents.getURL() || '';
+    if (!url.includes('academy.hackthebox.com')) return false;
+
+    try {
+        return await loginWindow.webContents.executeJavaScript(
+            `(() => fetch('/api/v2/modules', {
+                credentials: 'include',
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(async (r) => {
+                if (!r.ok) return false;
+                const body = await r.json().catch(() => null);
+                return Array.isArray(body)
+                    || Array.isArray(body?.data)
+                    || Array.isArray(body?.modules)
+                    || Array.isArray(body?.data?.data)
+                    || Array.isArray(body?.data?.modules);
+            })
+            .catch(() => false))()`,
+            true
+        );
     } catch {
         return false;
     }
@@ -169,50 +239,92 @@ function registerHtbLoginHandler() {
 
             let resolved = false;
             let finishTimer = null;
+            let pollTimer = null;
             let cookieListener = null;
+            let capturing = false;
 
             const cleanup = () => {
                 if (finishTimer) clearTimeout(finishTimer);
+                if (pollTimer) clearInterval(pollTimer);
                 if (cookieListener) {
                     academySession.cookies.removeListener('changed', cookieListener);
                     cookieListener = null;
                 }
             };
 
+            const finishOk = (cookieHeader) => {
+                if (resolved) return;
+                resolved = true;
+                cleanup();
+                if (!loginWindow.isDestroyed()) loginWindow.close();
+                resolve({ ok: true, session: cookieHeader });
+            };
+
             const tryCaptureSession = async () => {
-                if (resolved || loginWindow.isDestroyed()) return;
+                if (resolved || capturing || loginWindow.isDestroyed()) return;
+                capturing = true;
 
                 try {
                     const cookieHeader = await buildAcademyCookieHeader(academySession);
                     if (!cookieHeader) return;
 
-                    const valid = await verifyAcademySession(cookieHeader);
-                    if (!valid) return;
+                    const currentUrl = loginWindow.webContents.getURL() || '';
+                    const onAcademyApp =
+                        currentUrl.includes('/app/') || currentUrl.includes('/dashboard');
 
-                    resolved = true;
-                    cleanup();
-                    if (!loginWindow.isDestroyed()) loginWindow.close();
-                    resolve({ ok: true, session: cookieHeader });
-                } catch {
-                    // reintentar en el siguiente evento
+                    // Preferir verificación dentro de la ventana (usa cookies del partition).
+                    let valid = await verifyAcademySessionInWindow(loginWindow);
+                    if (!valid) {
+                        valid = await verifyAcademySessionWithNet(cookieHeader);
+                    }
+
+                    // Si ya hay cookie de sesión y el usuario está en el app, aceptar
+                    // aunque la API tarde un poco en responder JSON.
+                    if (!valid && onAcademyApp) {
+                        await new Promise((r) => setTimeout(r, 1500));
+                        if (resolved || loginWindow.isDestroyed()) return;
+                        valid =
+                            (await verifyAcademySessionInWindow(loginWindow)) ||
+                            (await verifyAcademySessionWithNet(cookieHeader));
+                    }
+
+                    if (!valid) return;
+                    finishOk(cookieHeader);
+                } catch (error) {
+                    console.warn('[HTB login] captura fallida:', error?.message || error);
+                } finally {
+                    capturing = false;
                 }
             };
 
-            const scheduleCapture = () => {
+            const scheduleCapture = (delayMs = 800) => {
                 if (finishTimer) clearTimeout(finishTimer);
-                finishTimer = setTimeout(tryCaptureSession, 1000);
+                finishTimer = setTimeout(tryCaptureSession, delayMs);
             };
 
             cookieListener = (event, cookie, cause, removed) => {
-                if (!removed && cookie.name === 'htb_academy_session') {
-                    scheduleCapture();
+                if (removed) return;
+                if (
+                    HTB_SESSION_COOKIE_NAMES.has(cookie.name) ||
+                    cookie.name === 'XSRF-TOKEN'
+                ) {
+                    scheduleCapture(1200);
                 }
             };
             academySession.cookies.on('changed', cookieListener);
 
-            loginWindow.webContents.on('did-finish-load', scheduleCapture);
-            loginWindow.webContents.on('did-navigate', scheduleCapture);
-            loginWindow.webContents.on('did-navigate-in-page', scheduleCapture);
+            loginWindow.webContents.on('did-finish-load', () => scheduleCapture(1000));
+            loginWindow.webContents.on('did-navigate', () => scheduleCapture(1000));
+            loginWindow.webContents.on('did-navigate-in-page', () => scheduleCapture(1000));
+            loginWindow.webContents.on('did-redirect-navigation', () => scheduleCapture(1200));
+
+            // Reintento periódico por si HTB setea la cookie sin disparar navegación.
+            pollTimer = setInterval(() => {
+                if (!resolved && !loginWindow.isDestroyed()) {
+                    tryCaptureSession();
+                }
+            }, 2500);
+
             loginWindow.on('closed', () => {
                 cleanup();
                 if (!resolved) {
@@ -252,7 +364,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
-        title: 'Sensor bGames',
+        title: 'Sensor LifeSync-Games',
         resizable: false,
         maximizable: false,
         icon: join(__dirname, 'icono.ico'),

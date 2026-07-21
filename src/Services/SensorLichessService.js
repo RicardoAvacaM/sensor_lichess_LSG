@@ -94,6 +94,20 @@ class SensorLichessService {
     return Boolean(user?.lichess_username && user?.lichess_access_token);
   }
 
+  async unlinkAccount() {
+    const users = await UserRepository.getUsers();
+    const user = users[0];
+    if (!user) throw new Error('No hay usuario LSG registrado.');
+
+    user.lichess_username = null;
+    user.lichess_access_token = null;
+    user.lichess_last_sync_at = null;
+    user.lichess_activity_snapshot = null;
+    user.lichess_last_status = null;
+    await UserRepository.updateUser(user);
+    return true;
+  }
+
   async fetchNewGames(username, token, sinceMs) {
     const stats = {
       blitz: { games: 0, wins: 0, eloGain: 0 },

@@ -5,7 +5,7 @@ function Sidebar({ setCurrentView }) {
   return (
     <div className="sidebar">
       <div className="logo">
-        <span className="sidebar-title">LSG Sensor</span>
+        <span className="sidebar-title">LifeSync-Games</span>
       </div>
       <button className="button" onClick={() => setCurrentView("lichess")}>
         Lichess
